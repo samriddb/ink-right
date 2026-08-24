@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tax residency check</title>
+<meta name="description" content="Check your US tax residency status as an F-1 student — substantial presence test and exemption clock, based on public IRS rules.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%82%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
@@ -29,10 +31,17 @@
   }
   h2 { font-size: 14px; font-weight: 500; margin: 0 0 14px; color: #374151; }
   .upload-row {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    padding: 14px; border: 1.5px dashed #d1c9b8; border-radius: 12px; margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+    padding: 18px; border: 1.5px dashed #d1c9b8; border-radius: 12px; margin-bottom: 8px;
+    text-align: center;
   }
-  .upload-row label.btn { cursor: pointer; }
+  .upload-row label.btn {
+    cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 500; color: #374151;
+    background: #fff; border: 1px solid #d1c9b8; border-radius: 8px; padding: 8px 14px;
+  }
+  .upload-row label.btn:hover { background: #f7f5f0; }
+  .upload-row label.btn svg { flex-shrink: 0; }
   .privacy-note { font-size: 12px; color: #6b7280; margin: 0 0 20px; display: flex; gap: 6px; align-items: flex-start; }
   .divider-text { text-align: center; font-size: 12px; color: #9ca3af; margin: 4px 0 16px; }
   .stay-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -51,7 +60,6 @@
   button.icon-btn { border: none; background: none; padding: 4px; color: #9ca3af; }
   button.icon-btn:hover { color: #374151; }
   .row-error { font-size: 11px; color: #c0392b; margin: -6px 0 8px 0; }
-  .top-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
   .field-group { margin-top: 16px; padding-top: 16px; border-top: 1px solid #efe9dc; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .field-group label { font-size: 13px; color: #4b5563; }
   .parse-status { font-size: 12px; margin-top: 4px; }
@@ -86,14 +94,17 @@
   <header>
     <p class="eyebrow">Tax residency check</p>
     <h1>Know your status before you file</h1>
-    <p class="sub">For F-1 / J-1 students and J-1 scholars. Based on public IRS rules, not tax advice.</p>
+    <p class="sub">For F-1 students. Based on public IRS rules.</p>
   </header>
 
   <section>
     <h2>Your travel history</h2>
 
     <div class="upload-row">
-      <label class="btn" for="pdf-input">Import from I-94 PDF</label>
+      <label class="btn" for="pdf-input">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></svg>
+        Import from I-94 PDF
+      </label>
       <input type="file" id="pdf-input" accept="application/pdf" style="display:none;">
       <span id="parse-status" class="parse-status"></span>
     </div>
@@ -101,15 +112,7 @@
 
     <div class="divider-text">or enter stays manually</div>
 
-    <div class="top-controls">
-      <label style="font-size:13px; color:#4b5563;">Visa category</label>
-      <select id="visa-category">
-        <option value="student">F-1 / J-1 student (5-year rule)</option>
-        <option value="scholar">J-1 scholar / researcher (2-of-6-year rule)</option>
-      </select>
-    </div>
-
-    <div id="stay-rows" style="margin-top:14px;"></div>
+    <div id="stay-rows"></div>
 
     <button id="add-stay">+ Add another stay</button>
 
@@ -197,31 +200,19 @@ function distinctPresenceYears(merged) {
   return Array.from(years).sort((a, b) => a - b);
 }
 
-function computeResult(list, year, category) {
+function computeResult(list, year) {
   const valid = getValidStays(list);
   const merged = mergeIntervals(valid);
   const distinctYears = distinctPresenceYears(merged);
 
-  if (category === "student") {
-    const exemptYears = distinctYears.slice(0, 5);
-    if (exemptYears.includes(year)) {
-      return {
-        status: "Nonresident alien",
-        detail: `Year ${exemptYears.indexOf(year) + 1} of 5 exempt years`,
-        forms: "Files form 8843, plus 1040-NR if you earned US income",
-        capYears: 5, usedYears: exemptYears, spt: null
-      };
-    }
-  } else {
-    const windowYears = distinctYears.filter(y => y >= year - 6 && y < year);
-    if (windowYears.length < 2 && distinctYears.includes(year)) {
-      return {
-        status: "Nonresident alien",
-        detail: `Used ${windowYears.length} of 2 exempt years in the prior 6`,
-        forms: "Files form 8843, plus 1040-NR if you earned US income",
-        capYears: 2, usedYears: windowYears, spt: null
-      };
-    }
+  const exemptYears = distinctYears.slice(0, 5);
+  if (exemptYears.includes(year)) {
+    return {
+      status: "Nonresident alien",
+      detail: `Year ${exemptYears.indexOf(year) + 1} of 5 exempt years`,
+      forms: "Files form 8843, plus 1040-NR if you earned US income",
+      capYears: 5, usedYears: exemptYears, spt: null
+    };
   }
 
   if (!distinctYears.includes(year)) {
@@ -229,7 +220,7 @@ function computeResult(list, year, category) {
       status: "No US presence recorded",
       detail: `No days recorded in ${year}`,
       forms: "Add travel dates covering this year to get a status",
-      capYears: category === "student" ? 5 : 2, usedYears: [], spt: null
+      capYears: 5, usedYears: [], spt: null
     };
   }
 
@@ -243,8 +234,8 @@ function computeResult(list, year, category) {
     status: passes ? "Resident alien (for tax purposes)" : "Nonresident alien",
     detail: passes ? "Meets the substantial presence test" : "Does not meet the substantial presence test",
     forms: passes ? "Files form 1040 like a US resident" : "Files form 8843, plus 1040-NR if you earned US income",
-    capYears: category === "student" ? 5 : 2,
-    usedYears: category === "student" ? distinctYears.slice(0, 5) : distinctYears.filter(y => y >= year - 6 && y < year),
+    capYears: 5,
+    usedYears: distinctYears.slice(0, 5),
     spt: { d0, d1, d2, weighted, passes }
   };
 }
@@ -288,8 +279,7 @@ function populateYearSelect() {
 }
 
 function render() {
-  const category = document.getElementById("visa-category").value;
-  const result = computeResult(stays, taxYear, category);
+  const result = computeResult(stays, taxYear);
   const isResident = result.status.startsWith("Resident");
 
   document.getElementById("status-section").innerHTML = `
@@ -307,8 +297,7 @@ function render() {
   const clockSection = document.getElementById("clock-section");
   if (result.capYears) {
     clockSection.style.display = "block";
-    document.getElementById("clock-title").textContent =
-      result.capYears === 5 ? "Your five-year exemption clock" : "Your two-of-six-year exemption clock";
+    document.getElementById("clock-title").textContent = "Your five-year exemption clock";
     const rows = document.getElementById("clock-rows");
     rows.innerHTML = "";
     for (let i = 0; i < result.capYears; i++) {
@@ -361,8 +350,6 @@ document.getElementById("add-stay").addEventListener("click", () => {
   renderStayRows();
   render();
 });
-
-document.getElementById("visa-category").addEventListener("change", render);
 
 document.getElementById("tax-year").addEventListener("change", e => {
   taxYear = Number(e.target.value);
